@@ -647,7 +647,7 @@ Rather than:
 metadata: { "openclaw": { "events": ["command"] } } # General - more overhead
 ```
 
-## Plugin hook registration (api.on vs api.registerHook)
+## Plugin hook registration
 
 If you're registering hooks **from a plugin** (not from a `HOOK.md` + `handler.ts`
 directory), there are two different API methods — and choosing the wrong one

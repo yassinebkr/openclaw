@@ -389,6 +389,11 @@ export default function register(api) {
 > **Rule of thumb:** If you want your handler to **run**, use `api.on()`.
 > Only use `api.registerHook()` if you specifically need to register metadata
 > for the hooks UI/diagnostics system.
+>
+> **Note:** Plugin typed hooks (e.g. `gateway_start`, `before_tool_call`) use
+> underscores and are distinct from workspace internal hooks (e.g.
+> `gateway:startup`, `session:compact:before`) which use colons. Don't mix them
+> up — `api.on()` is for plugin hooks only.
 
 ## Provider plugins (model auth)
 
