@@ -441,8 +441,10 @@ export function createOpenClawCodingTools(options?: {
     agentId,
     sessionKey: options?.sessionKey,
   };
-  const withBeforeHooks = normalized.map((tool) => wrapToolWithBeforeToolCallHook(tool, hookCtx));
-  const withHooks = withBeforeHooks.map((tool) => wrapToolWithAfterToolCallHook(tool, hookCtx));
+  // Order matters: after wraps inner execute, before wraps outer.
+  // This way after_tool_call only fires for calls that pass the before gate.
+  const withAfterHooks = normalized.map((tool) => wrapToolWithAfterToolCallHook(tool, hookCtx));
+  const withHooks = withAfterHooks.map((tool) => wrapToolWithBeforeToolCallHook(tool, hookCtx));
   const withAbort = options?.abortSignal
     ? withHooks.map((tool) => wrapToolWithAbortSignal(tool, options.abortSignal))
     : withHooks;

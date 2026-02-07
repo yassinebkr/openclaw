@@ -135,6 +135,27 @@ describe("after_tool_call hook integration", () => {
     expect(result).toEqual({ content: [], details: { ok: true } });
   });
 
+  it("does not fire after_tool_call when before_tool_call blocks execution", async () => {
+    hookRunner.hasHooks.mockReturnValue(true);
+    hookRunner.runAfterToolCall.mockResolvedValue(undefined);
+    // Simulate what wrapToolWithBeforeToolCallHook does when it blocks:
+    // it throws an Error with the block reason
+    const execute = vi.fn().mockRejectedValue(new Error("Tool call blocked by plugin hook"));
+    // oxlint-disable-next-line typescript/no-explicit-any
+    const tool = wrapToolWithAfterToolCallHook({ name: "exec", execute } as any, {
+      agentId: "main",
+      sessionKey: "main",
+    });
+
+    await expect(tool.execute("call-b", { cmd: "rm -rf /" }, undefined, undefined)).rejects.toThrow(
+      "blocked by plugin hook",
+    );
+
+    // after_tool_call must NOT fire for blocked calls — the underlying
+    // tool never actually executed
+    expect(hookRunner.runAfterToolCall).not.toHaveBeenCalled();
+  });
+
   it("normalizes non-object params for hook contract", async () => {
     hookRunner.hasHooks.mockReturnValue(true);
     hookRunner.runAfterToolCall.mockResolvedValue(undefined);

@@ -1,3 +1,4 @@
+import type { AgentToolResult } from "@mariozechner/pi-agent-core";
 import type { AnyAgentTool } from "./pi-tools.types.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
@@ -66,25 +67,34 @@ export function wrapToolWithAfterToolCallHook(tool: AnyAgentTool, ctx?: HookCont
     ...tool,
     execute: async (toolCallId, params, signal, onUpdate) => {
       const startMs = Date.now();
-      let result: unknown;
+      let result: AgentToolResult<unknown> | undefined;
       let error: string | undefined;
+      let blocked = false;
       try {
         result = await execute(toolCallId, params, signal, onUpdate);
         return result;
       } catch (err) {
         error = String(err);
+        // Detect before_tool_call blocks — the before hook wrapper throws
+        // with the block reason. Don't emit after_tool_call for blocks
+        // since the underlying tool never actually executed.
+        if (error.includes("blocked by plugin hook") || error.includes("Tool call blocked")) {
+          blocked = true;
+        }
         throw err;
       } finally {
-        const durationMs = Date.now() - startMs;
-        runAfterToolCallHook({
-          toolName,
-          params,
-          result,
-          error,
-          durationMs,
-          toolCallId,
-          ctx,
-        });
+        if (!blocked) {
+          const durationMs = Date.now() - startMs;
+          runAfterToolCallHook({
+            toolName,
+            params,
+            result,
+            error,
+            durationMs,
+            toolCallId,
+            ctx,
+          });
+        }
       }
     },
   };
