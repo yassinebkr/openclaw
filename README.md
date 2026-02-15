@@ -1,4 +1,8 @@
-# 🦞 OpenClaw — Personal AI Assistant
+# 🦞 OpenClaw — Personal AI Assistant (Fork)
+
+> **This is a fork of [openclaw/openclaw](https://github.com/openclaw/openclaw)** with additional features for memory persistence, long-term context, agent security, and session resilience. See [what's different](#-whats-different-in-this-fork) below.
+
+---
 
 <p align="center">
     <picture>
@@ -127,6 +131,73 @@ Run `openclaw doctor` to surface risky/misconfigured DM policies.
 - **[First-class tools](https://docs.openclaw.ai/tools)** — browser, canvas, nodes, cron, sessions, and Discord/Slack actions.
 - **[Companion apps](https://docs.openclaw.ai/platforms/macos)** — macOS menu bar app + iOS/Android [nodes](https://docs.openclaw.ai/nodes).
 - **[Onboarding](https://docs.openclaw.ai/start/wizard) + [skills](https://docs.openclaw.ai/tools/skills)** — wizard-driven setup with bundled/managed/workspace skills.
+
+## 🔱 What's different in this fork
+
+This fork extends upstream OpenClaw with features focused on **memory persistence**, **long-term context**, and **agent security**.
+
+### Memory Persistence Through Sessions & Compaction
+
+The core challenge: when context gets compacted (summarized to fit token limits) or a new session starts, the agent loses all conversational context. This fork solves it with a 3-layer memory system:
+
+#### Layer 1: Bootstrap File Injection
+
+Workspace files (`SOUL.md`, `AGENTS.md`, `USER.md`, `MEMORY.md`, `TOOLS.md`, `IDENTITY.md`, `HEARTBEAT.md`) are loaded fresh from disk and injected into the system prompt on **every run** — including compaction runs. This means the agent's identity, user knowledge, and curated long-term memory survive indefinitely, as long as the agent writes important context to these files.
+
+- Files are trimmed to 20K chars max (70% head + 20% tail with truncation marker)
+- Loaded via `resolveBootstrapContextForRun()` → `buildBootstrapContextFiles()`
+- Available to both normal runs and compaction runs
+
+#### Layer 2: Vector Memory Search (`memory_search` tool)
+
+All workspace `memory/` files (and optionally session transcripts) are chunked, embedded, and stored in a local SQLite database with vector similarity search:
+
+| Feature | Details |
+|---------|---------|
+| **Embeddings** | OpenAI `text-embedding-3-small`, Gemini `gemini-embedding-001`, or local models |
+| **Storage** | SQLite + `sqlite-vec` extension for vector similarity |
+| **Search** | Hybrid: 70% vector similarity + 30% BM25 full-text search |
+| **Chunking** | 400 tokens per chunk, 80 token overlap |
+| **Sync** | File watcher (chokidar), on session start, on search, or on interval |
+| **Sources** | `memory/` files (default) + session transcripts (experimental) |
+| **Results** | Max 6 results, minimum 0.35 relevance score |
+
+The agent can call `memory_search` to semantically search across all its memory files and past session transcripts — not just what's in the current context window.
+
+#### Layer 3: Session Memory Hook (`/new` auto-archiving)
+
+When the `/new` command is called to start a fresh session, a bundled hook automatically:
+
+1. Reads the last 15 messages from the current session transcript
+2. Generates a descriptive slug via LLM (e.g., `clawos-security-audit`)
+3. Saves the session content to `memory/YYYY-MM-DD-slug.md`
+
+This ensures conversations are archived before being discarded, and become searchable via Layer 2.
+
+#### Compaction Safeguard
+
+When context is compacted, the `compaction-safeguard` extension preserves critical metadata in the summary:
+
+- **`<read-files>`** — list of files the agent was reading
+- **`<modified-files>`** — list of files the agent changed
+- **Tool failures** — recent errors preserved for debugging continuity
+- **Dropped message recovery** — if messages are pruned for context budget, they get a separate LLM summary so context isn't lost entirely
+
+### Agent Security (ClawOS Plugin)
+
+This fork includes the [ClawOS](https://github.com/yassinebkr/clawos) security plugin — a 9-layer defense system protecting against prompt injection, data exfiltration, and session corruption. See the [ClawOS repo](https://github.com/yassinebkr/clawos) for details.
+
+### Pending PRs to Upstream
+
+These features are implemented in this fork and submitted to upstream OpenClaw:
+
+| PR | Feature | Status |
+|----|---------|--------|
+| [#10678](https://github.com/openclaw/openclaw/pull/10678) | `after_tool_call` hook | Open, CI green |
+| [#10679](https://github.com/openclaw/openclaw/pull/10679) | `gateway_start` / `gateway_stop` lifecycle hooks | Open, CI green |
+| [#10680](https://github.com/openclaw/openclaw/pull/10680) | Hook registration docs (`api.on()` vs `api.registerHook()`) | Open, CI green |
+
+---
 
 ## Star History
 
