@@ -197,6 +197,64 @@ These features are implemented in this fork and submitted to upstream OpenClaw:
 | [#10679](https://github.com/openclaw/openclaw/pull/10679) | `gateway_start` / `gateway_stop` lifecycle hooks | Open, CI green |
 | [#10680](https://github.com/openclaw/openclaw/pull/10680) | Hook registration docs (`api.on()` vs `api.registerHook()`) | Open, CI green |
 
+### Our Vision: Local-First, Compaction-Resilient Memory
+
+The OpenClaw ecosystem has 12+ memory plugins, each with a different philosophy. Here's how we see the landscape and where our approach fits:
+
+#### The two camps
+
+| Approach | Examples | Pros | Cons |
+|----------|----------|------|------|
+| **External memory** | Mem0, Supermemory, MemoryPlugin | Compaction-proof by design — memories live outside the context window | Cloud dependency, latency, privacy trade-off |
+| **Local-first** | Our fork, bulletproof-memory, openclaw-memory, QMD | Full privacy, zero cloud, low latency | Must solve "survive compaction" at the architecture level |
+
+#### Why we chose local-first
+
+We believe memory should be:
+
+1. **On disk, not in the cloud.** Your agent's memories are your data. They shouldn't live on someone else's server.
+2. **Plain Markdown as source of truth.** Files you can read, edit, grep, and version-control. No opaque vector databases as the primary store.
+3. **Compaction-resilient by design, not by workaround.** Bootstrap files are re-injected on every run — including compaction runs. This isn't a plugin that hopes to survive compaction; it's wired into the core runner.
+4. **Agent-controlled retrieval.** The agent decides when to search (`memory_search`) rather than auto-injecting every turn (which floods context with irrelevant memories and wastes tokens).
+5. **Zero external dependencies.** No API keys required for memory to work. SQLite + sqlite-vec runs entirely local.
+
+#### How it compares
+
+| Feature | Cloud plugins (Mem0, Supermemory) | WAL/file plugins (bulletproof-memory) | **This fork** |
+|---------|----------------------------------|--------------------------------------|---------------|
+| Survives compaction | ✅ External storage | ✅ Files on disk | ✅ Bootstrap injection + files |
+| Survives session restart | ✅ | ✅ | ✅ |
+| Semantic search | ✅ Cloud embeddings | ❌ | ✅ Local SQLite + sqlite-vec |
+| Auto-archiving on `/new` | ❌ | ❌ | ✅ Session-memory hook |
+| Privacy | ⚠️ Cloud | ✅ Local | ✅ Local |
+| Token efficiency | ⚠️ Auto-inject every turn | ✅ On-demand | ✅ On-demand search |
+| Infrastructure | Requires API key + cloud | Zero | Zero |
+
+#### Architecture diagram
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Every Agent Run                            │
+│                                                              │
+│  1. Bootstrap injection (SOUL, AGENTS, USER, MEMORY, TOOLS)  │
+│     → Always loaded, survives compaction + restarts           │
+│                                                              │
+│  2. Compaction safeguard                                      │
+│     → Preserves read-files, modified-files in summary         │
+│     → Pre-compaction memory flush prompt                      │
+│                                                              │
+│  3. Vector memory search (on-demand via memory_search)        │
+│     → SQLite + sqlite-vec, hybrid BM25 + vector               │
+│     → Indexes memory/*.md + session transcripts               │
+│                                                              │
+│  4. Session archiving (on /new)                               │
+│     → LLM-generated slug → memory/YYYY-MM-DD-slug.md         │
+│     → Auto-archived, searchable via Layer 3                   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+The key insight: we don't fight compaction — we work with it. Bootstrap files ensure the agent always knows who it is and what matters. Vector search gives it access to everything else on demand. Session archiving means nothing is lost when starting fresh.
+
 ---
 
 ## Star History
