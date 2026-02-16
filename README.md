@@ -152,15 +152,15 @@ Workspace files (`SOUL.md`, `AGENTS.md`, `USER.md`, `MEMORY.md`, `TOOLS.md`, `ID
 
 All workspace `memory/` files (and optionally session transcripts) are chunked, embedded, and stored in a local SQLite database with vector similarity search:
 
-| Feature | Details |
-|---------|---------|
+| Feature        | Details                                                                         |
+| -------------- | ------------------------------------------------------------------------------- |
 | **Embeddings** | OpenAI `text-embedding-3-small`, Gemini `gemini-embedding-001`, or local models |
-| **Storage** | SQLite + `sqlite-vec` extension for vector similarity |
-| **Search** | Hybrid: 70% vector similarity + 30% BM25 full-text search |
-| **Chunking** | 400 tokens per chunk, 80 token overlap |
-| **Sync** | File watcher (chokidar), on session start, on search, or on interval |
-| **Sources** | `memory/` files (default) + session transcripts (experimental) |
-| **Results** | Max 6 results, minimum 0.35 relevance score |
+| **Storage**    | SQLite + `sqlite-vec` extension for vector similarity                           |
+| **Search**     | Hybrid: 70% vector similarity + 30% BM25 full-text search                       |
+| **Chunking**   | 400 tokens per chunk, 80 token overlap                                          |
+| **Sync**       | File watcher (chokidar), on session start, on search, or on interval            |
+| **Sources**    | `memory/` files (default) + session transcripts (experimental)                  |
+| **Results**    | Max 6 results, minimum 0.35 relevance score                                     |
 
 The agent can call `memory_search` to semantically search across all its memory files and past session transcripts — not just what's in the current context window.
 
@@ -191,10 +191,10 @@ This fork includes the [ClawOS](https://github.com/yassinebkr/clawos) security p
 
 These features are implemented in this fork and submitted to upstream OpenClaw:
 
-| PR | Feature | Status |
-|----|---------|--------|
-| [#10678](https://github.com/openclaw/openclaw/pull/10678) | `after_tool_call` hook | Open, CI green |
-| [#10679](https://github.com/openclaw/openclaw/pull/10679) | `gateway_start` / `gateway_stop` lifecycle hooks | Open, CI green |
+| PR                                                        | Feature                                                     | Status         |
+| --------------------------------------------------------- | ----------------------------------------------------------- | -------------- |
+| [#10678](https://github.com/openclaw/openclaw/pull/10678) | `after_tool_call` hook                                      | Open, CI green |
+| [#10679](https://github.com/openclaw/openclaw/pull/10679) | `gateway_start` / `gateway_stop` lifecycle hooks            | Open, CI green |
 | [#10680](https://github.com/openclaw/openclaw/pull/10680) | Hook registration docs (`api.on()` vs `api.registerHook()`) | Open, CI green |
 
 ### Our Vision: Local-First, Compaction-Resilient Memory
@@ -203,10 +203,10 @@ The OpenClaw ecosystem has 12+ memory plugins, each with a different philosophy.
 
 #### The two camps
 
-| Approach | Examples | Pros | Cons |
-|----------|----------|------|------|
-| **External memory** | Mem0, Supermemory, MemoryPlugin | Compaction-proof by design — memories live outside the context window | Cloud dependency, latency, privacy trade-off |
-| **Local-first** | Our fork, bulletproof-memory, openclaw-memory, QMD | Full privacy, zero cloud, low latency | Must solve "survive compaction" at the architecture level |
+| Approach            | Examples                                           | Pros                                                                  | Cons                                                      |
+| ------------------- | -------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------- |
+| **External memory** | Mem0, Supermemory, MemoryPlugin                    | Compaction-proof by design — memories live outside the context window | Cloud dependency, latency, privacy trade-off              |
+| **Local-first**     | Our fork, bulletproof-memory, openclaw-memory, QMD | Full privacy, zero cloud, low latency                                 | Must solve "survive compaction" at the architecture level |
 
 #### Why we chose local-first
 
@@ -220,15 +220,15 @@ We believe memory should be:
 
 #### How it compares
 
-| Feature | Cloud plugins (Mem0, Supermemory) | WAL/file plugins (bulletproof-memory) | **This fork** |
-|---------|----------------------------------|--------------------------------------|---------------|
-| Survives compaction | ✅ External storage | ✅ Files on disk | ✅ Bootstrap injection + files |
-| Survives session restart | ✅ | ✅ | ✅ |
-| Semantic search | ✅ Cloud embeddings | ❌ | ✅ Local SQLite + sqlite-vec |
-| Auto-archiving on `/new` | ❌ | ❌ | ✅ Session-memory hook |
-| Privacy | ⚠️ Cloud | ✅ Local | ✅ Local |
-| Token efficiency | ⚠️ Auto-inject every turn | ✅ On-demand | ✅ On-demand search |
-| Infrastructure | Requires API key + cloud | Zero | Zero |
+| Feature                  | Cloud plugins (Mem0, Supermemory) | WAL/file plugins (bulletproof-memory) | **This fork**                  |
+| ------------------------ | --------------------------------- | ------------------------------------- | ------------------------------ |
+| Survives compaction      | ✅ External storage               | ✅ Files on disk                      | ✅ Bootstrap injection + files |
+| Survives session restart | ✅                                | ✅                                    | ✅                             |
+| Semantic search          | ✅ Cloud embeddings               | ❌                                    | ✅ Local SQLite + sqlite-vec   |
+| Auto-archiving on `/new` | ❌                                | ❌                                    | ✅ Session-memory hook         |
+| Privacy                  | ⚠️ Cloud                          | ✅ Local                              | ✅ Local                       |
+| Token efficiency         | ⚠️ Auto-inject every turn         | ✅ On-demand                          | ✅ On-demand search            |
+| Infrastructure           | Requires API key + cloud          | Zero                                  | Zero                           |
 
 #### Architecture diagram
 
@@ -254,6 +254,272 @@ We believe memory should be:
 ```
 
 The key insight: we don't fight compaction — we work with it. Bootstrap files ensure the agent always knows who it is and what matters. Vector search gives it access to everything else on demand. Session archiving means nothing is lost when starting fresh.
+
+---
+
+## 📱 Channel Setup
+
+Quick setup guides for connecting your agent to messaging platforms.
+
+### WhatsApp
+
+1. Add the WhatsApp config to `~/.openclaw/openclaw.json`.
+2. Run `openclaw channels login` and scan the QR code via WhatsApp > Settings > Linked Devices.
+3. Start the gateway.
+
+```json5
+{
+  channels: {
+    whatsapp: {
+      dmPolicy: "allowlist",
+      allowFrom: ["+15551234567"], // your phone number (E.164)
+    },
+  },
+}
+```
+
+**Gotchas:**
+
+- Your personal number works fine. If you want a dedicated bot number, a prepaid SIM or eSIM works — avoid VoIP/virtual numbers.
+- Bun runtime is **not supported** — use Node.
+- Credentials are stored in `~/.openclaw/credentials/whatsapp/`.
+
+See [full WhatsApp docs](docs/channels/whatsapp.md)
+
+### Telegram
+
+1. Create a bot with [@BotFather](https://t.me/BotFather) — verify the handle is exactly `@BotFather`. Copy the token.
+2. Set the token in config or env (`TELEGRAM_BOT_TOKEN`). If both are set, config takes precedence.
+3. Start the gateway and DM your bot — DM access is pairing by default, approve the code.
+
+```json5
+{
+  channels: {
+    telegram: {
+      enabled: true,
+      botToken: "123456:ABCDEF",
+      dmPolicy: "pairing",
+      groups: { "*": { requireMention: true } },
+    },
+  },
+}
+```
+
+**Gotchas:**
+
+- Bots default to **Privacy Mode** — they only see commands and mentions in groups. Either disable it (`/setprivacy` in BotFather) or make the bot a group **admin**.
+- After toggling privacy mode, you must **remove and re-add** the bot to each group for the change to take effect.
+- Long-polling is the default (no public URL needed). Webhook mode available via `webhookUrl` + `webhookSecret`.
+
+See [full Telegram docs](docs/channels/telegram.md)
+
+### Discord
+
+1. Create a Discord application at the [Developer Portal](https://discord.com/developers/applications) > Bot > copy the token.
+2. Enable **Message Content Intent** (required) and **Server Members Intent** (needed for name lookups/allowlists) in the Bot settings.
+3. Invite the bot to your server with `bot` + `applications.commands` scopes and message permissions.
+4. Set the token in config or env (`DISCORD_BOT_TOKEN`). If both are set, config takes precedence.
+5. Start the gateway. DM access is pairing by default.
+
+```json5
+{
+  channels: {
+    discord: {
+      enabled: true,
+      token: "YOUR_BOT_TOKEN",
+      dm: {
+        policy: "pairing",
+        allowFrom: ["YOUR_USER_ID"],
+      },
+    },
+  },
+}
+```
+
+**Gotchas:**
+
+- Enable Developer Mode in Discord (Settings > Advanced) to copy guild/channel/user IDs.
+- Without **Message Content Intent**, the bot connects but silently ignores all messages.
+- Guild channels require mention by default. Configure per-guild in `guilds`.
+- Don't grant the bot Administrator permission — give only the permissions it needs.
+
+See [full Discord docs](docs/channels/discord.md)
+
+### Signal
+
+1. Install `signal-cli` (requires Java).
+2. Link the bot device: `signal-cli link -n "OpenClaw"` and scan the QR in Signal.
+3. Configure and start the gateway.
+
+```json5
+{
+  channels: {
+    signal: {
+      enabled: true,
+      account: "+15551234567", // bot's Signal number
+      cliPath: "signal-cli",
+      dmPolicy: "pairing",
+      allowFrom: ["+15557654321"], // your number
+    },
+  },
+}
+```
+
+**Gotchas:**
+
+- A **separate number** is required for Signal. Running on your personal number means it ignores your own messages (loop protection — unlike WhatsApp, there's no self-chat workaround).
+- `signal-cli` has slow JVM cold starts. Use `httpUrl` + `autoStart: false` for external daemon mode on constrained hosts.
+- Signal has no usernames — use E.164 phone numbers or `uuid:<id>` in allowlists.
+
+See [full Signal docs](docs/channels/signal.md)
+
+---
+
+## 🔑 API Keys & Providers
+
+All the API keys you need and where to get them.
+
+| Provider                 | Purpose                           | Free tier?                              | Get your key                                                                                             |
+| ------------------------ | --------------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Anthropic** (Claude)   | Primary LLM — recommended         | No (API billing or Claude subscription) | [console.anthropic.com](https://console.anthropic.com/) (API key) or `claude setup-token` (subscription) |
+| **OpenAI**               | GPT models, Whisper transcription | No (API billing)                        | [platform.openai.com/api-keys](https://platform.openai.com/api-keys)                                     |
+| **Moonshot** (Kimi K2.5) | Free alternative LLM              | **Yes** — free tier                     | [platform.moonshot.ai](https://platform.moonshot.ai/)                                                    |
+| **Brave Search**         | `web_search` tool                 | **Yes** — free plan                     | [brave.com/search/api](https://brave.com/search/api/)                                                    |
+| **Resend**               | Email sending                     | **Yes** — 100 emails/day                | [resend.com](https://resend.com/)                                                                        |
+| **ElevenLabs**           | Text-to-speech (TTS)              | **Yes** — limited                       | [elevenlabs.io](https://elevenlabs.io/)                                                                  |
+
+### Anthropic (Claude) — Recommended
+
+The primary and recommended provider. Two auth methods:
+
+**Option A: Setup token (Claude Pro/Max subscribers)**
+
+```bash
+# On any machine with Claude CLI:
+claude setup-token
+# Then paste into OpenClaw:
+openclaw models auth paste-token --provider anthropic
+```
+
+**Option B: API key**
+
+```json5
+{
+  env: { ANTHROPIC_API_KEY: "sk-ant-..." },
+  agents: { defaults: { model: { primary: "anthropic/claude-opus-4-6" } } },
+}
+```
+
+See [full Anthropic docs](docs/providers/anthropic.md)
+
+### OpenAI
+
+Used for GPT models and also powers **Whisper** voice transcription in Scratchy.
+
+```json5
+{
+  env: { OPENAI_API_KEY: "sk-..." },
+  agents: { defaults: { model: { primary: "openai/gpt-4.1" } } },
+}
+```
+
+The same API key is used for Whisper transcription (voice-to-text in Scratchy's voice input).
+
+See [full OpenAI docs](docs/providers/openai.md)
+
+### Moonshot / Kimi K2.5
+
+Free-tier LLM with 256K context window. Good for testing or as a fallback.
+
+1. Create an account at [platform.moonshot.ai](https://platform.moonshot.ai/).
+2. Generate an API key.
+
+```json5
+{
+  env: { MOONSHOT_API_KEY: "sk-..." },
+  agents: { defaults: { model: { primary: "moonshot/kimi-k2.5" } } },
+}
+```
+
+> **Note:** Moonshot and Kimi Coding are separate providers with different keys and endpoints. See the full docs for the detailed model config.
+
+See [full Moonshot docs](docs/providers/moonshot.md)
+
+### Brave Search
+
+Powers the `web_search` tool. The **Data for Search** plan is required (not "Data for AI").
+
+```json5
+{
+  tools: {
+    web: {
+      search: {
+        provider: "brave",
+        apiKey: "YOUR_BRAVE_API_KEY",
+      },
+    },
+  },
+}
+```
+
+Or set `BRAVE_API_KEY` as an environment variable.
+
+See [full Brave Search docs](docs/brave-search.md)
+
+### Resend (Email) — Optional
+
+For sending emails via the agent. Requires a verified domain for production use.
+
+```json5
+{
+  env: { RESEND_API_KEY: "re_..." },
+}
+```
+
+### ElevenLabs (TTS) — Optional
+
+For text-to-speech voice output.
+
+```json5
+{
+  env: { ELEVENLABS_API_KEY: "..." },
+}
+```
+
+---
+
+## 🛡️ ClawOS — Agent Security Architecture
+
+This fork includes [ClawOS](https://github.com/yassinebkr/clawos), a 9-layer security architecture for agent safety. It runs as an OpenClaw extension that intercepts all agent activity in real time.
+
+**What it does:** ClawOS scans every tool call result (Layer 4+) for prompt injection patterns — attempts by external content to hijack the agent's instructions. When injection signals are detected, Layer C kicks in and **blocks dangerous tools** (exec, write, message) for the remainder of that run. This prevents a compromised agent from executing commands, modifying files, or sending messages on your behalf.
+
+**Why this matters:** Agent self-verification is fundamentally unreliable. If an agent is successfully injected, asking it "were you injected?" will return "no" — because the injection told it to say that. ClawOS addresses this by enforcing security at the infrastructure level with `before_tool_call` hooks, outside the agent's own reasoning. The agent can't override its own guardrails.
+
+**Key capabilities:**
+
+- Prompt injection detection via L4+ content scanning
+- Tool call interception with `before_tool_call` hooks
+- Layer C automatic blocking of dangerous tools when injection detected
+- Canary token tracking for data exfiltration detection
+- Integration with [Scratchy](https://github.com/yassinebkr/scratchy) for visual security status
+
+See the [ClawOS repo](https://github.com/yassinebkr/clawos) for the full architecture breakdown and layer definitions.
+
+---
+
+## 🐱 Scratchy — Recommended UI Client
+
+[Scratchy](https://github.com/yassinebkr/scratchy) is a generative UI client built specifically for this fork.
+
+- **Generative UI components** — the agent renders rich interactive cards, charts, tables, and forms instead of plain text
+- **Voice input with Whisper** — speak to your agent with real-time transcription (requires OpenAI API key)
+- **ClawOS security dashboard** — visual layer status, injection alerts, and tool blocking indicators
+- **WebSocket-native** — connects directly to the OpenClaw Gateway with live streaming
+- **Mobile-responsive** — works on desktop and mobile browsers
+- **Dark/light mode** — automatic theme detection with manual toggle
+
+Setup: clone the repo and run `node serve.js`. See the [full setup guide](https://github.com/yassinebkr/scratchy/blob/main/docs/SETUP.md) for VPS deployment with systemd and remote access.
 
 ---
 
