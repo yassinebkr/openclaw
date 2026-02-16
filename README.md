@@ -58,6 +58,36 @@ openclaw onboard --install-daemon
 
 The wizard installs the Gateway daemon (launchd/systemd user service) so it stays running.
 
+## 🖥️ VPS / Remote Server Setup
+
+Running OpenClaw on a VPS (Contabo, Hetzner, DigitalOcean, etc.):
+
+```bash
+# 1. SSH in and create a non-root user
+ssh root@YOUR_SERVER_IP
+adduser openclaw && usermod -aG sudo openclaw
+
+# 2. Set up firewall — only SSH, never expose gateway/app ports
+sudo ufw allow OpenSSH && sudo ufw enable
+
+# 3. Install Node 22+ (via nvm)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source ~/.bashrc
+nvm install 22
+
+# 4. Install and configure OpenClaw
+npm install -g openclaw@latest
+openclaw onboard --install-daemon
+
+# 5. Access remotely via SSH tunnel (from your local machine)
+# ssh -L 3001:localhost:3001 openclaw@YOUR_SERVER_IP
+# Then open http://localhost:3001 in your browser
+```
+
+**Security:** Never open ports 3001 or 28945 in the firewall. Always use an SSH tunnel or Cloudflare tunnel for remote access.
+
+For a complete walkthrough (systemd services, Cloudflare tunnels, troubleshooting): see the **[full VPS setup guide](https://github.com/yassinebkr/scratchy/blob/main/docs/SETUP.md)**.
+
 ## Quick start (TL;DR)
 
 Runtime: **Node ≥22**.
