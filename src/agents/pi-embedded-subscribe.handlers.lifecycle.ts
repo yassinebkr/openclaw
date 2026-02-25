@@ -1,4 +1,5 @@
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
+import { estimateTokens } from "@mariozechner/pi-coding-agent";
 import type { EmbeddedPiSubscribeContext } from "./pi-embedded-subscribe.handlers.types.js";
 import { emitAgentEvent } from "../infra/agent-events.js";
 import { createInlineCodeState } from "../markdown/code-spans.js";
@@ -22,15 +23,46 @@ export function handleAgentStart(ctx: EmbeddedPiSubscribeContext) {
 export function handleAutoCompactionStart(ctx: EmbeddedPiSubscribeContext) {
   ctx.state.compactionInFlight = true;
   ctx.ensureCompactionPromise();
-  ctx.log.debug(`embedded run compaction start: runId=${ctx.params.runId}`);
+
+  // Estimate tokens before compaction from current session messages
+  let tokensBefore: number | undefined;
+  try {
+    const messages = ctx.params.session.messages;
+    if (messages && messages.length > 0) {
+      tokensBefore = 0;
+      for (const msg of messages) {
+        tokensBefore += estimateTokens(msg);
+      }
+    }
+  } catch {
+    // Best effort — don't block compaction on estimation failure
+  }
+
+  // Store in state for inclusion in end event
+  (ctx.state as Record<string, unknown>)._compactionTokensBefore = tokensBefore;
+
+  ctx.log.debug(
+    `embedded run compaction start: runId=${ctx.params.runId} tokensBefore=${tokensBefore ?? "?"}`,
+  );
+
+  const data: Record<string, unknown> = { phase: "start" };
+  if (tokensBefore != null) {
+    data.tokensBefore = tokensBefore;
+  }
+  // Include context window from model if available
+  const contextWindow = ctx.params.session.model?.contextWindow;
+  if (contextWindow != null) {
+    data.contextWindow = contextWindow;
+  }
+
   emitAgentEvent({
     runId: ctx.params.runId,
     stream: "compaction",
-    data: { phase: "start" },
+    data,
   });
   void ctx.params.onAgentEvent?.({
     stream: "compaction",
-    data: { phase: "start" },
+    data,
   });
 }
 
@@ -47,14 +79,40 @@ export function handleAutoCompactionEnd(
   } else {
     ctx.maybeResolveCompactionWait();
   }
+
+  // Retrieve tokensBefore stored during start, estimate tokensAfter
+  const tokensBefore = (ctx.state as Record<string, unknown>)._compactionTokensBefore as
+    | number
+    | undefined;
+  let tokensAfter: number | undefined;
+  if (!willRetry) {
+    try {
+      const messages = ctx.params.session.messages;
+      if (messages && messages.length > 0) {
+        tokensAfter = 0;
+        for (const msg of messages) {
+          tokensAfter += estimateTokens(msg);
+        }
+      }
+    } catch {
+      // Best effort
+    }
+    // Clean up stored state
+    delete (ctx.state as Record<string, unknown>)._compactionTokensBefore;
+  }
+
+  const data: Record<string, unknown> = { phase: "end", willRetry };
+  if (tokensBefore != null) data.tokensBefore = tokensBefore;
+  if (tokensAfter != null) data.tokensAfter = tokensAfter;
+
   emitAgentEvent({
     runId: ctx.params.runId,
     stream: "compaction",
-    data: { phase: "end", willRetry },
+    data,
   });
   void ctx.params.onAgentEvent?.({
     stream: "compaction",
-    data: { phase: "end", willRetry },
+    data,
   });
 }
 
