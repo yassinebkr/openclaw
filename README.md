@@ -213,6 +213,17 @@ When context is compacted, the `compaction-safeguard` extension preserves critic
 - **Tool failures** — recent errors preserved for debugging continuity
 - **Dropped message recovery** — if messages are pruned for context budget, they get a separate LLM summary so context isn't lost entirely
 
+#### Streaming Compaction Progress
+
+Compaction can take 30-60 seconds on large contexts. This fork adds real-time progress streaming so clients (like Scratchy) can show a live progress bar instead of a spinner:
+
+- **Enriched lifecycle events** — `compaction:start` includes `tokensBefore` + `contextWindow` (via SDK's `estimateTokens()`), `compaction:end` includes `tokensAfter`
+- **Streaming progress** — the compaction runner emits `compaction:progress` events with `pct` (0-100) and `tokensGenerated` as the summary is being written
+- **Heartbeat frames** — server emits progress heartbeats every 2 seconds during compaction for client UI refresh
+- **Priority chain** — clients use server-reported tokens → client estimate → 100k fallback for accurate progress calculation
+- **Configurable** — enabled via `agents.defaults.compaction.streamProgress: true` in config
+- **Backward compatible** — legacy clients that don't handle progress events are unaffected
+
 ### Agent Security (ClawOS Plugin)
 
 This fork includes the [ClawOS](https://github.com/yassinebkr/clawos) security plugin — a 9-layer defense system protecting against prompt injection, data exfiltration, and session corruption. See the [ClawOS repo](https://github.com/yassinebkr/clawos) for details.
@@ -540,14 +551,19 @@ See the [ClawOS repo](https://github.com/yassinebkr/clawos) for the full archite
 
 ## 🐱 Scratchy — Recommended UI Client
 
-[Scratchy](https://github.com/yassinebkr/scratchy) is a generative UI client built specifically for this fork.
+[Scratchy](https://github.com/yassinebkr/scratchy) is a generative UI client built specifically for this fork. 37+ interactive components, 7 standalone widget apps, multi-user auth, and cross-device real-time sync — all in vanilla JS with zero build step.
 
-- **Generative UI components** — the agent renders rich interactive cards, charts, tables, and forms instead of plain text
-- **Voice input with Whisper** — speak to your agent with real-time transcription (requires OpenAI API key)
-- **ClawOS security dashboard** — visual layer status, injection alerts, and tool blocking indicators
-- **WebSocket-native** — connects directly to the OpenClaw Gateway with live streaming
-- **Mobile-responsive** — works on desktop and mobile browsers
-- **Dark/light mode** — automatic theme detection with manual toggle
+- **37+ GenUI components** — cards, charts (bar/pie/line/sparkline/gauge), dashboards, forms, timelines, and more — rendered inline in chat
+- **7 standalone widget apps** — Notes (Standard Notes), Calendar (Google), Email (Gmail), Spotify, YouTube, Admin Dashboard, Deploy Manager — all run autonomously without agent involvement
+- **Multi-user authentication** — encrypted user store (AES-256-GCM, Argon2id), passkeys/WebAuthn, per-user quotas, BYOK (bring your own API key)
+- **Cross-device real-time sync** — open on phone and desktop simultaneously, messages + canvas + activity indicators stay in sync
+- **Streaming TTS** — ElevenLabs v3 with instant audio playback (MediaSource + SourceBuffer), phase-aware sentence buffering (only speaks the final answer)
+- **Live activity indicator** — real-time tool event streaming (📄 Reading file, ⚡ Running command, 🔍 Searching web) with elapsed timer
+- **Compaction progress bar** — real-time streaming progress during context compactions using enriched lifecycle events from this fork
+- **TOON format** — token-efficient alternative to JSON for canvas ops (~18-40% savings)
+- **Version-controlled deployment** — per-user version routing, admin-only push, one-click rollback
+- **Dark/light mode** — CSS overlay variable system with component-specific overrides
+- **Mobile-responsive** — PWA-installable, works on all devices
 
 Setup: clone the repo and run `node serve.js`. See the [full setup guide](https://github.com/yassinebkr/scratchy/blob/main/docs/SETUP.md) for VPS deployment with systemd and remote access.
 
