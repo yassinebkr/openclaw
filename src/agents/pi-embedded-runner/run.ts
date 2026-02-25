@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import type { ThinkLevel } from "../../auto-reply/thinking.js";
 import type { RunEmbeddedPiAgentParams } from "./run/params.js";
 import type { EmbeddedPiAgentMeta, EmbeddedPiRunResult } from "./types.js";
+import { emitAgentEvent } from "../../infra/agent-events.js";
 import { enqueueCommandInLane } from "../../process/command-queue.js";
 import { isMarkdownCapableMessageChannel } from "../../utils/message-channel.js";
 import { resolveOpenClawAgentDir } from "../agent-paths.js";
@@ -428,6 +429,22 @@ export async function runEmbeddedPiAgent(
                   bashElevated: params.bashElevated,
                   extraSystemPrompt: params.extraSystemPrompt,
                   ownerNumbers: params.ownerNumbers,
+                  onCompactionProgress: (progress) => {
+                    emitAgentEvent({
+                      runId: params.runId,
+                      stream: "compaction",
+                      data: {
+                        phase: "progress",
+                        tokensGenerated: progress.tokensGenerated,
+                        estimatedTotal: progress.estimatedTotal,
+                        summaryPhase: progress.phase,
+                        pct:
+                          progress.estimatedTotal > 0
+                            ? Math.round((progress.tokensGenerated / progress.estimatedTotal) * 100)
+                            : 0,
+                      },
+                    });
+                  },
                 });
                 if (compactResult.compacted) {
                   log.info(`auto-compaction succeeded for ${provider}/${modelId}; retrying prompt`);

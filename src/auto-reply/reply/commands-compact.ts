@@ -8,6 +8,7 @@ import {
 } from "../../agents/pi-embedded.js";
 import { resolveSessionFilePath } from "../../config/sessions.js";
 import { logVerbose } from "../../globals.js";
+import { emitAgentEvent } from "../../infra/agent-events.js";
 import { enqueueSystemEvent } from "../../infra/system-events.js";
 import { formatContextUsageShort, formatTokenCount } from "../status.js";
 import { stripMentions, stripStructuralPrefixes } from "./mentions.js";
@@ -94,6 +95,22 @@ export const handleCompactCommand: CommandHandler = async (params) => {
     customInstructions,
     senderIsOwner: params.command.senderIsOwner,
     ownerNumbers: params.command.ownerList.length > 0 ? params.command.ownerList : undefined,
+    onCompactionProgress: (progress) => {
+      emitAgentEvent({
+        runId: params.sessionKey ?? sessionId,
+        stream: "compaction",
+        data: {
+          phase: "progress",
+          tokensGenerated: progress.tokensGenerated,
+          estimatedTotal: progress.estimatedTotal,
+          summaryPhase: progress.phase,
+          pct:
+            progress.estimatedTotal > 0
+              ? Math.round((progress.tokensGenerated / progress.estimatedTotal) * 100)
+              : 0,
+        },
+      });
+    },
   });
 
   const compactLabel = result.ok

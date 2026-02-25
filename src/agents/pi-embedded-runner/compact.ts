@@ -105,6 +105,12 @@ export type CompactEmbeddedPiSessionParams = {
   enqueue?: typeof enqueueCommand;
   extraSystemPrompt?: string;
   ownerNumbers?: string[];
+  /** Optional callback for streaming compaction progress (Phase 3). */
+  onCompactionProgress?: (progress: {
+    phase: string;
+    tokensGenerated: number;
+    estimatedTotal: number;
+  }) => void;
 };
 
 /**
@@ -117,8 +123,29 @@ export async function compactEmbeddedPiSessionDirect(
   const resolvedWorkspace = resolveUserPath(params.workspaceDir);
   const prevCwd = process.cwd();
 
-  const provider = (params.provider ?? DEFAULT_PROVIDER).trim() || DEFAULT_PROVIDER;
-  const modelId = (params.model ?? DEFAULT_MODEL).trim() || DEFAULT_MODEL;
+  // ── Compaction model/thinkLevel overrides from config ──
+  // When compaction.model is set, use it instead of the session model.
+  // When compaction.thinkLevel is set, use it instead of the session thinkLevel.
+  const compactionCfg = params.config?.agents?.defaults?.compaction;
+  let effectiveProvider = params.provider;
+  let effectiveModel = params.model;
+  let effectiveThinkLevel = params.thinkLevel;
+
+  if (compactionCfg?.model) {
+    const parts = compactionCfg.model.split("/");
+    if (parts.length === 2) {
+      effectiveProvider = parts[0];
+      effectiveModel = parts[1];
+      log.info(`compaction model override: ${compactionCfg.model}`);
+    }
+  }
+  if (compactionCfg?.thinkLevel) {
+    effectiveThinkLevel = compactionCfg.thinkLevel as ThinkLevel;
+    log.info(`compaction thinkLevel override: ${effectiveThinkLevel}`);
+  }
+
+  const provider = (effectiveProvider ?? DEFAULT_PROVIDER).trim() || DEFAULT_PROVIDER;
+  const modelId = (effectiveModel ?? DEFAULT_MODEL).trim() || DEFAULT_MODEL;
   const agentDir = params.agentDir ?? resolveOpenClawAgentDir();
   await ensureOpenClawModelsJson(params.config, agentDir);
   const { model, error, authStorage, modelRegistry } = resolveModel(
@@ -332,7 +359,7 @@ export async function compactEmbeddedPiSessionDirect(
     const ttsHint = params.config ? buildTtsSystemPromptHint(params.config) : undefined;
     const appendPrompt = buildEmbeddedSystemPrompt({
       workspaceDir: effectiveWorkspace,
-      defaultThinkLevel: params.thinkLevel,
+      defaultThinkLevel: effectiveThinkLevel,
       reasoningLevel: params.reasoningLevel ?? "off",
       extraSystemPrompt: params.extraSystemPrompt,
       ownerNumbers: params.ownerNumbers,
@@ -403,7 +430,7 @@ export async function compactEmbeddedPiSessionDirect(
         authStorage,
         modelRegistry,
         model,
-        thinkingLevel: mapThinkingLevel(params.thinkLevel),
+        thinkingLevel: mapThinkingLevel(effectiveThinkLevel),
         tools: builtInTools,
         customTools,
         sessionManager,
@@ -434,7 +461,10 @@ export async function compactEmbeddedPiSessionDirect(
         if (limited.length > 0) {
           session.agent.replaceMessages(limited);
         }
-        const result = await session.compact(params.customInstructions);
+        const result = await (session as any).compact(
+          params.customInstructions,
+          params.onCompactionProgress,
+        );
         // Estimate tokens after compaction by summing token estimates for remaining messages
         let tokensAfter: number | undefined;
         try {
