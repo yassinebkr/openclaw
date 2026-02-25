@@ -66,6 +66,38 @@ export function handleAutoCompactionStart(ctx: EmbeddedPiSubscribeContext) {
   });
 }
 
+export function handleCompactionProgress(
+  ctx: EmbeddedPiSubscribeContext,
+  progress: { tokensGenerated: number; estimatedTotal: number; phase: string },
+) {
+  emitAgentEvent({
+    runId: ctx.params.runId,
+    stream: "compaction",
+    data: {
+      phase: "progress",
+      tokensGenerated: progress.tokensGenerated,
+      estimatedTotal: progress.estimatedTotal,
+      summaryPhase: progress.phase, // "history" | "turnPrefix"
+      pct:
+        progress.estimatedTotal > 0
+          ? Math.round((progress.tokensGenerated / progress.estimatedTotal) * 100)
+          : 0,
+    },
+  });
+  void ctx.params.onAgentEvent?.({
+    stream: "compaction",
+    data: {
+      phase: "progress",
+      tokensGenerated: progress.tokensGenerated,
+      estimatedTotal: progress.estimatedTotal,
+      pct:
+        progress.estimatedTotal > 0
+          ? Math.round((progress.tokensGenerated / progress.estimatedTotal) * 100)
+          : 0,
+    },
+  });
+}
+
 export function handleAutoCompactionEnd(
   ctx: EmbeddedPiSubscribeContext,
   evt: AgentEvent & { willRetry?: unknown },
