@@ -5,6 +5,8 @@ import { installSessionToolResultGuard } from "./session-tool-result-guard.js";
 export type GuardedSessionManager = SessionManager & {
   /** Flush any synthetic tool results for pending tool calls. Idempotent. */
   flushPendingToolResults?: () => void;
+  /** Return tool call IDs that have not yet received a matching tool result. */
+  getPendingIds?: () => string[];
 };
 
 /**
@@ -50,5 +52,6 @@ export function guardSessionManager(
     allowSyntheticToolResults: opts?.allowSyntheticToolResults,
   });
   (sessionManager as GuardedSessionManager).flushPendingToolResults = guard.flushPendingToolResults;
+  (sessionManager as GuardedSessionManager).getPendingIds = guard.getPendingIds;
   return sessionManager as GuardedSessionManager;
 }

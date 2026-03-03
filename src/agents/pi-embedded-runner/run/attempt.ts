@@ -872,6 +872,32 @@ export async function runEmbeddedAttempt(
         if (abortWarnTimer) {
           clearTimeout(abortWarnTimer);
         }
+
+        // When aborting with in-flight tool calls, give the EventStream a brief
+        // window to deliver already-completed tool results before disconnecting.
+        // Without this, completed exec results are discarded and replaced with
+        // synthetic error results (the "orphaned tool_result" problem).
+        // Most completed results arrive within a single event-loop tick; 200ms
+        // is a generous upper bound for slow I/O callbacks.
+        const DRAIN_TIMEOUT_MS = 200;
+        const DRAIN_POLL_MS = 10;
+        const pendingBeforeDrain = sessionManager?.getPendingIds?.() ?? [];
+        if (aborted && pendingBeforeDrain.length > 0) {
+          const drainStart = Date.now();
+          while (
+            (sessionManager?.getPendingIds?.()?.length ?? 0) > 0 &&
+            Date.now() - drainStart < DRAIN_TIMEOUT_MS
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, DRAIN_POLL_MS));
+          }
+          const remaining = sessionManager?.getPendingIds?.() ?? [];
+          if (remaining.length < pendingBeforeDrain.length) {
+            log.debug(
+              `abort drain: collected ${pendingBeforeDrain.length - remaining.length}/${pendingBeforeDrain.length} tool results before flush`,
+            );
+          }
+        }
+
         unsubscribe();
         clearActiveEmbeddedRun(params.sessionId, queueHandle);
         params.abortSignal?.removeEventListener?.("abort", onAbort);
